@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "fundamentus-crawler"
+version = "0.1.0"
+description = ""
+authors = ["Victor Watanabe <vmwatanabe@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+pandas = "^1.4.1"
+yahooquery = "^2.2.15"
+bs4 = "^0.0.1"
+cloudscraper = "^1.2.58"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
