@@ -79,15 +79,11 @@ class FundamentusScraper():
         url = "https://www.fundamentus.com.br/resultado.php"
         response = scraper.get(url)
 
-        soup = BeautifulSoup(response.text)
+        soup = BeautifulSoup(response.text, features="lxml")
         table = soup.select_one("table#resultado")
-        headers = [th.text for th in table.select("tr th")]
 
-        with open(TEMPORARY_SHEET, "w") as f:
-            wr = csv.writer(f)
-            wr.writerow(headers)
-            wr.writerows([[td.text for td in row.find_all("td")]
-                          for row in table.select("tr + tr")])
+        self.df = pd.read_html(str(table), decimal=',', thousands='.')[0]
+        print(self.df)
 
     def setup(self):
         self.ticker_dict = self.get_initial_ticker_dict()
@@ -95,8 +91,6 @@ class FundamentusScraper():
         def parse_percentage_fields(name):
             self.df[name] = self.df[name].str.strip('%').replace('\.', '', regex=True).replace(
                 ',', '.', regex=True).astype(float)
-
-        self.df = pd.read_csv(TEMPORARY_SHEET, decimal=',', thousands='.')
 
         self.df = self.df.rename(
             columns=PARSED_COLUMN_NAMES)
@@ -227,8 +221,10 @@ class FundamentusScraper():
         filename = datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + '.csv'
         json_filename = datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + '.json'
 
-        json_filepath = Path('json/' + folder + '/' + json_filename)
-        filepath = Path('results/' + folder + '/' + filename)
+        json_filepath = Path('fundamentus_crawler/json/' +
+                             folder + '/' + json_filename)
+        filepath = Path('fundamentus_crawler/results/' +
+                        folder + '/' + filename)
         filepath.parent.mkdir(parents=True, exist_ok=True)
         self.df.to_csv(filepath)
 
