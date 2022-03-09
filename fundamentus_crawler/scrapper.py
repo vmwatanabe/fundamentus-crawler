@@ -194,6 +194,7 @@ class FundamentusScraper():
 
         magic_value_column_values = self.df.apply(
             lambda row: get_row_value(row), axis=1)
+        total_rows = len(self.df.index)
         ranking_column_values = range(1, total_rows + 1)
 
         self.df[MAGIC_VALUE] = magic_value_column_values
