@@ -1,10 +1,9 @@
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from yahooquery import Ticker
+from fundamentus_crawler.ticker_scrapper import TickerScrapper
 import json
 from bs4 import BeautifulSoup
-import csv
 import cloudscraper
 
 MIN_PATRIMONIO = 300000000.00
@@ -19,12 +18,12 @@ EV_EBIT = 'evByEbit'
 EV_EBIT_RANKING = 'evByEbitRanking'
 PATRIMONIO = 'patrimonioLiquido'
 MAGIC = 'magicRanking'
+MAGIC_VALUE = 'magicValue'
 SMALLCAP = 'smallcap'
 PAPEL = 'papel'
-INDUSTRIA = 'industria'
-NOME_EMPRESA_LONGO = 'nomeEmpresaLongo'
-NOME_EMPRESA = 'nomeEmpresa'
+NOME_EMPRESA = 'empresa'
 SETOR = 'setor'
+SUBSETOR = 'subsetor'
 CACHE_FILE_NAME = 'fundamentus_crawler/ticker.json'
 TEMPORARY_SHEET = 'out.csv'
 
@@ -51,7 +50,7 @@ PARSED_COLUMN_NAMES = {
     "Dív.Brut/ Patrim.": "dividaBrutaByPatrimonio",
     "Cresc. Rec.5a": "crescRec",
     "Setor": "setor",
-    "Indústria": "industria",
+    "Subsetor": "subsetor",
     "Smallcap": "smallcap",
     "EV/EBIT Ranking": "evByEbitRanking",
     "ROIC Ranking": "roicRanking",
@@ -124,32 +123,20 @@ class FundamentusScraper():
                 return self.ticker_dict[name]
 
             print(name, 'fetching')
-            new_ticker = Ticker(name)
-
-            ticker_data = {}
-
-            try:
-                ticker_data[INDUSTRIA] = new_ticker.asset_profile[name]['industry']
-            except:
-                print(name, 'error INDUSTRIA')
-            try:
-                ticker_data[SETOR] = new_ticker.asset_profile[name]['sector']
-            except:
-                print(name, 'error SETOR')
-            try:
-                ticker_data[NOME_EMPRESA_LONGO] = new_ticker.quote_type[name]['longName']
-            except:
-                print(name, 'error NOME_EMPRESA_LONGO')
-            try:
-                ticker_data[NOME_EMPRESA] = new_ticker.quote_type[name]['shortName']
-            except:
-                print(name, 'error NOME_EMPRESA')
+            ticker = TickerScrapper(name).get()
+            ticker_data = {
+                "papel": ticker["papel"],
+                "empresa": ticker["empresa"],
+                "setor": ticker["setor"],
+                "subsetor": ticker["subsetor"],
+                "data_ult_cotacao": ticker["data_ult_cotacao"],
+            }
 
             self.ticker_dict[name] = ticker_data
             return ticker_data
 
         def get_row_value(row, field):
-            ticker_name = row[PAPEL] + '.SA'
+            ticker_name = row[PAPEL]
             ticker = get_ticker(ticker_name)
 
             if field in ticker:
@@ -157,18 +144,15 @@ class FundamentusScraper():
 
             return ''
 
-        industry_column = self.df.apply(
-            lambda row: get_row_value(row, INDUSTRIA), axis=1)
-        summary_column = self.df.apply(
+        setor_column = self.df.apply(
             lambda row: get_row_value(row, SETOR), axis=1)
-        nome_empresa_longo_column = self.df.apply(
-            lambda row: get_row_value(row, NOME_EMPRESA_LONGO), axis=1)
+        subsetor_column = self.df.apply(
+            lambda row: get_row_value(row, SUBSETOR), axis=1)
         nome_empresa_column = self.df.apply(
             lambda row: get_row_value(row, NOME_EMPRESA), axis=1)
 
-        self.df[SETOR] = summary_column
-        self.df[INDUSTRIA] = industry_column
-        self.df[NOME_EMPRESA_LONGO] = nome_empresa_longo_column
+        self.df[SUBSETOR] = subsetor_column
+        self.df[SETOR] = setor_column
         self.df[NOME_EMPRESA] = nome_empresa_column
         return self.df
 
@@ -208,11 +192,13 @@ class FundamentusScraper():
         def get_row_value(row):
             return row[EV_EBIT_RANKING] + row[ROIC_RANKING]
 
-        ranking_column_values = self.df.apply(
+        magic_value_column_values = self.df.apply(
             lambda row: get_row_value(row), axis=1)
+        ranking_column_values = range(1, total_rows + 1)
 
+        self.df[MAGIC_VALUE] = magic_value_column_values
+        self.df = self.df.sort_values(by=[MAGIC_VALUE])
         self.df[MAGIC] = ranking_column_values
-        self.df = self.df.sort_values(by=[MAGIC])
 
         return self.df
 
