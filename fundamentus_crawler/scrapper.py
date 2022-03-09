@@ -5,6 +5,8 @@ from fundamentus_crawler.ticker_scrapper import TickerScrapper
 import json
 from bs4 import BeautifulSoup
 import cloudscraper
+import time
+from datetime import date
 
 MIN_PATRIMONIO = 300000000.00
 CRESCIMENTO = 'crescRec'
@@ -24,6 +26,7 @@ PAPEL = 'papel'
 NOME_EMPRESA = 'empresa'
 SETOR = 'setor'
 SUBSETOR = 'subsetor'
+DATA_ULTIMA_COTACAO = 'ultCotacao'
 CACHE_FILE_NAME = 'fundamentus_crawler/ticker.json'
 TEMPORARY_SHEET = 'out.csv'
 
@@ -54,7 +57,8 @@ PARSED_COLUMN_NAMES = {
     "Smallcap": "smallcap",
     "EV/EBIT Ranking": "evByEbitRanking",
     "ROIC Ranking": "roicRanking",
-    "Magic Ranking": "magicRanking"
+    "Magic Ranking": "magicRanking",
+    "Data Últ. Cotação": "ultCotacao"
 }
 
 
@@ -70,6 +74,7 @@ class FundamentusScraper():
         self.set_ev_ebti_ranking_row()
         self.set_roic_ranking_column()
         self.set_magic_ranking_row()
+        self.remove_old_tickers()
         self.save_results()
 
     def get_initial_data(self):
@@ -150,10 +155,13 @@ class FundamentusScraper():
             lambda row: get_row_value(row, SUBSETOR), axis=1)
         nome_empresa_column = self.df.apply(
             lambda row: get_row_value(row, NOME_EMPRESA), axis=1)
+        data_ultima_cotacao_column = self.df.apply(
+            lambda row: get_row_value(row, 'data_ult_cotacao'), axis=1)
 
         self.df[SUBSETOR] = subsetor_column
         self.df[SETOR] = setor_column
         self.df[NOME_EMPRESA] = nome_empresa_column
+        self.df[DATA_ULTIMA_COTACAO] = data_ultima_cotacao_column
         return self.df
 
     def set_small_cap_column(self):
@@ -200,6 +208,35 @@ class FundamentusScraper():
         self.df[MAGIC_VALUE] = magic_value_column_values
         self.df = self.df.sort_values(by=[MAGIC_VALUE])
         self.df[MAGIC] = ranking_column_values
+
+        return self.df
+
+    def remove_old_tickers(self):
+        def get_row_value(row):
+            print('row', row[DATA_ULTIMA_COTACAO])
+            splited = row[DATA_ULTIMA_COTACAO].split('/')
+            dia = splited[0]
+            mes = splited[1]
+            ano = splited[2]
+            return ano + '-' + mes + '-' + dia
+
+        data_ultima_cotacao_column_values = self.df.apply(
+            lambda row: get_row_value(row), axis=1)
+
+        today = date.today()
+
+        if (today.month == 1):
+            minimum_date = date(today.year - 1, 12, 1)
+        else:
+            minimum_date = date(today.year, today.month, 1)
+
+        print(self.df)
+
+        self.df[DATA_ULTIMA_COTACAO] = data_ultima_cotacao_column_values
+        self.df = self.df.loc[self.df[DATA_ULTIMA_COTACAO]
+                              > minimum_date.isoformat()]
+
+        print(self.df)
 
         return self.df
 
