@@ -33,6 +33,9 @@ VALOR_MERCADO = 'valorMercado'
 COTACAO = 'cotacao'
 NUMERO_ACOES = 'numeroAcoes'
 EBIT = 'ebit'
+VALOR_FIRMA = 'valorFirma',
+VALOR_MERCADO = 'valorMercado',
+COTACAO_TO_TOP30 = 'cotacaoToTop30'
 
 CACHE_FILE_NAME = 'fundamentus_crawler/ticker.json'
 TEMPORARY_SHEET = 'out.csv'
@@ -67,7 +70,10 @@ PARSED_COLUMN_NAMES = {
     "Magic Ranking": "magicRanking",
     "Data Últ. Cotação": "ultCotacao",
     "Valor de mercado": "valorMercado",
-    "EBIT": "ebit"
+    "EBIT": "ebit",
+    "Valor de mercado": "valorMercado",
+    "Valor de firma": "valorFirma",
+    "Cotacao para top30": "cotacaoToTop30"
 }
 
 
@@ -82,11 +88,13 @@ class FundamentusScraper():
         self.set_valor_mercado_column()
         self.set_numero_acoes_column()
         self.set_ebit_column()
+        self.set_valor_firma_column()
         self.remove_old_tickers()
         self.set_small_cap_column()
         self.set_ev_ebti_ranking_row()
         self.set_roic_ranking_column()
         self.set_magic_ranking_row()
+        self.get_cotacao_to_top_column()
         self.save_results()
 
     def get_initial_data(self):
@@ -178,6 +186,7 @@ class FundamentusScraper():
 
     def set_valor_mercado_column(self):
         def get_valor_mercado_row_value(row):
+            print(row[PAPEL], row[P_VP], row[PATRIMONIO])
             return row[P_VP] * row[PATRIMONIO]
 
         valor_mercado_values = self.df.apply(
@@ -210,6 +219,19 @@ class FundamentusScraper():
             lambda row: get_ebit_row_value(row), axis=1)
 
         self.df[EBIT] = ebit_values
+        return self.df
+
+    def set_valor_firma_column(self):
+        def get_valor_firma_row_value(row):
+            try:
+                return row[EBIT] * row[EV_EBIT]
+            except:
+                return 0
+
+        valor_firma_values = self.df.apply(
+            lambda row: get_valor_firma_row_value(row), axis=1)
+
+        self.df[VALOR_FIRMA] = valor_firma_values
         return self.df
 
     def set_small_cap_column(self):
@@ -261,7 +283,6 @@ class FundamentusScraper():
 
     def remove_old_tickers(self):
         def get_row_value(row):
-            print('row', row[DATA_ULTIMA_COTACAO])
             splited = row[DATA_ULTIMA_COTACAO].split('/')
             dia = splited[0]
             mes = splited[1]
@@ -286,6 +307,45 @@ class FundamentusScraper():
 
         print(self.df)
 
+        return self.df
+
+    def get_cotacao_to_top_column(self):
+
+        top30 = self.df.loc[self.df[MAGIC] == 30].iloc[0]
+        top30_magic_score = top30[MAGIC_VALUE]
+
+        def get_cotacao_to_top_row_value(row):
+            try:
+                if (row[MAGIC] < 30):
+                    return 0
+
+                this_row_roic_ranking = row[ROIC_RANKING]
+                desired_ev_ebit_ranking = top30_magic_score - this_row_roic_ranking
+                print('-', row[PAPEL], top30_magic_score,
+                      this_row_roic_ranking)
+                if (desired_ev_ebit_ranking <= 0):
+                    return 0
+
+                lookup_item = self.df.loc[self.df[EV_EBIT_RANKING]
+                                          == desired_ev_ebit_ranking].iloc[0]
+
+                divida_liquida = row[VALOR_MERCADO] - row[VALOR_FIRMA]
+                potencial_valor_mercado = (
+                    row[EBIT] * lookup_item[EV_EBIT]) - divida_liquida
+
+                potencial_valor = potencial_valor_mercado / row[NUMERO_ACOES]
+
+                if (potencial_valor > row[COTACAO]):
+                    return 0
+
+                return potencial_valor
+            except:
+                return 0
+
+        cotacao_to_top_values = self.df.apply(
+            lambda row: get_cotacao_to_top_row_value(row), axis=1)
+
+        self.df[COTACAO_TO_TOP30] = cotacao_to_top_values
         return self.df
 
     def save_results(self):
