@@ -13,6 +13,7 @@ CRESCIMENTO = 'crescRec'
 MARGEM_LIQUIDA = 'margemLiq'
 MARGEM_EBIT = 'margemEbit'
 ROE = 'roe'
+P_VP = 'pByVp'
 DIVIDEND_YIELD = 'dividendYield'
 ROIC = 'roic'
 ROIC_RANKING = 'roicRanking'
@@ -27,6 +28,10 @@ NOME_EMPRESA = 'empresa'
 SETOR = 'setor'
 SUBSETOR = 'subsetor'
 DATA_ULTIMA_COTACAO = 'ultCotacao'
+VALOR_MERCADO = 'valorMercado'
+COTACAO = 'cotacao'
+NUMERO_ACOES = 'numeroAcoes'
+
 CACHE_FILE_NAME = 'fundamentus_crawler/ticker.json'
 TEMPORARY_SHEET = 'out.csv'
 
@@ -58,7 +63,8 @@ PARSED_COLUMN_NAMES = {
     "EV/EBIT Ranking": "evByEbitRanking",
     "ROIC Ranking": "roicRanking",
     "Magic Ranking": "magicRanking",
-    "Data Últ. Cotação": "ultCotacao"
+    "Data Últ. Cotação": "ultCotacao",
+    "Valor de mercado": "valorMercado"
 }
 
 
@@ -69,12 +75,14 @@ class FundamentusScraper():
     def main(self):
         self.get_initial_data()
         self.setup()
-        self.decorate_data()
+        self.crawl_stock_data()
+        self.set_valor_mercado_column()
+        self.set_numero_acoes_column()
+        self.remove_old_tickers()
         self.set_small_cap_column()
         self.set_ev_ebti_ranking_row()
         self.set_roic_ranking_column()
         self.set_magic_ranking_row()
-        self.remove_old_tickers()
         self.save_results()
 
     def get_initial_data(self):
@@ -120,7 +128,7 @@ class FundamentusScraper():
             print('e')
             return {}
 
-    def decorate_data(self):
+    def crawl_stock_data(self):
 
         def get_ticker(name):
             if name in self.ticker_dict:
@@ -162,6 +170,29 @@ class FundamentusScraper():
         self.df[SETOR] = setor_column
         self.df[NOME_EMPRESA] = nome_empresa_column
         self.df[DATA_ULTIMA_COTACAO] = data_ultima_cotacao_column
+        return self.df
+
+    def set_valor_mercado_column(self):
+        def get_valor_mercado_row_value(row):
+            return row[P_VP] * row[PATRIMONIO]
+
+        valor_mercado_values = self.df.apply(
+            lambda row: get_valor_mercado_row_value(row), axis=1)
+
+        self.df[VALOR_MERCADO] = valor_mercado_values
+        return self.df
+
+    def set_numero_acoes_column(self):
+        def get_numero_acoes_row_value(row):
+            try:
+                return row[VALOR_MERCADO] / row[COTACAO]
+            except:
+                return 0
+
+        numero_acoes_values = self.df.apply(
+            lambda row: get_numero_acoes_row_value(row), axis=1)
+
+        self.df[NUMERO_ACOES] = numero_acoes_values
         return self.df
 
     def set_small_cap_column(self):
@@ -245,6 +276,7 @@ class FundamentusScraper():
         filename = datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + '.csv'
         json_filename = datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + '.json'
 
+        front_filepath = Path('../stock-picking/src/data.json')
         json_filepath = Path('fundamentus_crawler/json/' +
                              folder + '/' + json_filename)
         filepath = Path('fundamentus_crawler/results/' +
@@ -261,6 +293,8 @@ class FundamentusScraper():
 
         json_filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(json_filepath, 'w') as outfile:
+            outfile.write(json_string)
+        with open(front_filepath, 'w') as outfile:
             outfile.write(json_string)
 
 
