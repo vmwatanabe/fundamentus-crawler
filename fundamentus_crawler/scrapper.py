@@ -14,6 +14,7 @@ MARGEM_LIQUIDA = 'margemLiq'
 MARGEM_EBIT = 'margemEbit'
 ROE = 'roe'
 P_VP = 'pByVp'
+P_EBIT = 'pByEbit'
 DIVIDEND_YIELD = 'dividendYield'
 ROIC = 'roic'
 ROIC_RANKING = 'roicRanking'
@@ -31,6 +32,7 @@ DATA_ULTIMA_COTACAO = 'ultCotacao'
 VALOR_MERCADO = 'valorMercado'
 COTACAO = 'cotacao'
 NUMERO_ACOES = 'numeroAcoes'
+EBIT = 'ebit'
 
 CACHE_FILE_NAME = 'fundamentus_crawler/ticker.json'
 TEMPORARY_SHEET = 'out.csv'
@@ -64,7 +66,8 @@ PARSED_COLUMN_NAMES = {
     "ROIC Ranking": "roicRanking",
     "Magic Ranking": "magicRanking",
     "Data Últ. Cotação": "ultCotacao",
-    "Valor de mercado": "valorMercado"
+    "Valor de mercado": "valorMercado",
+    "EBIT": "ebit"
 }
 
 
@@ -78,6 +81,7 @@ class FundamentusScraper():
         self.crawl_stock_data()
         self.set_valor_mercado_column()
         self.set_numero_acoes_column()
+        self.set_ebit_column()
         self.remove_old_tickers()
         self.set_small_cap_column()
         self.set_ev_ebti_ranking_row()
@@ -193,6 +197,19 @@ class FundamentusScraper():
             lambda row: get_numero_acoes_row_value(row), axis=1)
 
         self.df[NUMERO_ACOES] = numero_acoes_values
+        return self.df
+
+    def set_ebit_column(self):
+        def get_ebit_row_value(row):
+            try:
+                return row[COTACAO] / row[P_EBIT] * row[NUMERO_ACOES]
+            except:
+                return 0
+
+        ebit_values = self.df.apply(
+            lambda row: get_ebit_row_value(row), axis=1)
+
+        self.df[EBIT] = ebit_values
         return self.df
 
     def set_small_cap_column(self):
