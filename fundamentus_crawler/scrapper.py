@@ -354,6 +354,7 @@ class FundamentusScraper():
         json_filename = datetime.now().strftime("%d-%b-%Y (%H:%M:%S.%f)") + '.json'
 
         front_filepath = Path('../stock-picking/src/data.json')
+        latest_filepath = Path('fundamentus_crawler/json/latest.json')
         json_filepath = Path('fundamentus_crawler/json/' +
                              folder + '/' + json_filename)
         filepath = Path('fundamentus_crawler/results/' +
@@ -370,6 +371,8 @@ class FundamentusScraper():
 
         json_filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(json_filepath, 'w') as outfile:
+            outfile.write(json_string)
+        with open(latest_filepath, 'w') as outfile:
             outfile.write(json_string)
         with open(front_filepath, 'w') as outfile:
             outfile.write(json_string)
