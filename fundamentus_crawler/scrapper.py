@@ -367,7 +367,12 @@ class FundamentusScraper():
 
         result = self.df.to_json(orient="records")
         parsed = json.loads(result)
-        json_string = json.dumps(parsed)
+
+        final = {
+            "dtCreated": date.today().isoformat(),
+            "items": parsed,
+        }
+        json_string = json.dumps(final)
 
         json_filepath.parent.mkdir(parents=True, exist_ok=True)
         with open(json_filepath, 'w') as outfile:
