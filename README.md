@@ -1,5 +1,5 @@
 # fundamentus-crawler
-A cralwer to get stocks info from IBOVESPA, the main performance indicator of the stocks traded in Brazil.
+A crawler to get stocks info the Brazilian stock market.
 
 To install the dependencies, run
 
